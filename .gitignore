@@ -1,1 +1,4 @@
 jpm_tree/
+/.clj-kondo/
+/.lsp/
+/.nrepl-port

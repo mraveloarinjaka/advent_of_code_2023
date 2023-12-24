@@ -1,0 +1,6 @@
+{:tasks
+ {:init (def JPM_CMD "jpm -l")
+  deps (shell JPM_CMD "deps")
+  watch (shell JPM_CMD "janet" "-e" "(import spork/netrepl) (netrepl/server)")}}
+
+
