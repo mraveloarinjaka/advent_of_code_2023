@@ -50,8 +50,8 @@
         game-data-indexed (zipcoll (range height) game-data)]
     {:height height :width width
      :data (mapcat (fn [[line-nb line]]
-                  (->coordinates-2d line-nb line))
-                (pairs game-data-indexed))}))
+                     (->coordinates-2d line-nb line))
+                   (pairs game-data-indexed))}))
 
 (defn symbol?
   [[item-type _ _]]
@@ -61,16 +61,21 @@
   [coll]
   (zipcoll coll coll))
 
-(defn ->symbols-neighbors
-  [{:height height
+(defn ->neighbors
+  [item-filter
+   {:height height
     :width width
     :data data}]
   (->> data
-       (filter symbol?)
+       (filter item-filter)
        (mapcat (fn [[_ _ positions]] positions))
        (mapcat (partial coordinates/->valid-neigbors width height))
        make-set
        ))
+
+(defn ->symbols-neighbors
+  [game-data]
+  (->neighbors symbol? game-data))
 
 (->symbols-neighbors (->game-data SAMPLE))
 
@@ -82,7 +87,9 @@
   [neighbors position]
   (get neighbors position false))
 
-(let [game-data (->game-data SAMPLE)
+# part 1
+(let [game-data (->game-data (slurp "src/day3.txt"))
+      #game-data (->game-data SAMPLE)
       {:height height
        :width width
        :data data} game-data
@@ -94,14 +101,32 @@
        (map (fn [[_ item-value _]] item-value))
        (reduce + 0)))
 
+# part 2
 (let [game-data (->game-data (slurp "src/day3.txt"))
+      #game-data (->game-data SAMPLE)
       {:height height
        :width width
        :data data} game-data
-      symbols-neighbors (->symbols-neighbors game-data)]
-  (->> data
-       (filter part?)
-       (filter (fn [[_ _ positions]]
-                 (some (partial neighbor? symbols-neighbors) positions)))
-       (map (fn [[_ item-value _]] item-value))
+      parts (->> data
+                 (filter (complement symbol?)))
+      gears (->> data
+                 (filter symbol?)
+                 (filter (fn[[_ item-value _]] (= "*" item-value))))]
+  (->> gears
+       (map (fn [[item-type item-value positions]]
+              [item-type item-value positions
+               (make-set (mapcat (partial coordinates/->valid-neigbors width height) positions))]))
+       (map (fn [[item-type item-value positions neighbors]]
+              (let [neighboring-parts (filter
+                                        (fn [[_ _ positions]]
+                                          (some (partial neighbor? neighbors) positions))
+                                        parts)]
+                [item-type item-value positions neighboring-parts])))
+       (filter (fn [[_ _ _ neighboring-parts]]
+                 (= 2 (length neighboring-parts))))
+       (map (fn [[_ _ _ neighboring-parts]]
+              (->> neighboring-parts
+                   (map misc/second)
+                   (reduce * 1))))
        (reduce + 0)))
+
