@@ -1,5 +1,6 @@
 (import spork/misc)
 (import ./coordinates)
+(import ./utils)
 
 (def SAMPLE
   `
@@ -57,10 +58,6 @@
   [[item-type _ _]]
   (= :symbol item-type))
 
-(defn make-set
-  [coll]
-  (zipcoll coll coll))
-
 (defn ->neighbors
   [item-filter
    {:height height
@@ -70,14 +67,13 @@
        (filter item-filter)
        (mapcat (fn [[_ _ positions]] positions))
        (mapcat (partial coordinates/->valid-neigbors width height))
-       make-set
-       ))
+       utils/make-set))
 
 (defn ->symbols-neighbors
   [game-data]
   (->neighbors symbol? game-data))
 
-(->symbols-neighbors (->game-data SAMPLE))
+#_(->symbols-neighbors (->game-data SAMPLE))
 
 (defn part?
   [[item-type _ _]]
@@ -115,7 +111,7 @@
   (->> gears
        (map (fn [[item-type item-value positions]]
               [item-type item-value positions
-               (make-set (mapcat (partial coordinates/->valid-neigbors width height) positions))]))
+               (utils/make-set (mapcat (partial coordinates/->valid-neigbors width height) positions))]))
        (map (fn [[item-type item-value positions neighbors]]
               (let [neighboring-parts (filter
                                         (fn [[_ _ positions]]
