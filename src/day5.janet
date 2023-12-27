@@ -1,5 +1,3 @@
-(import big)
-
 (def SAMPLE
   `
   seeds: 79 14 55 13
@@ -37,15 +35,11 @@
   56 93 4
   `)
 
-(defn parse-number
-  [number]
-  (* 1.0 (parse number)))
-
 (def PATTERN
-  ~{:number (sequence (replace (capture :d+) ,parse-number) :s*)
+  ~{:number (sequence (replace (capture :d+) ,parse) :s*)
     :seeds (sequence "seeds: " (constant ,:seeds) (some :number))
     :map (sequence (constant ,:map) (repeat 3 :number))
-    :seed-to-soil (sequence (constant ,:seed-to-soil) "seed-to-sool")
+    :seed-to-soil (sequence (constant ,:seed-to-soil) "seed-to-soil")
     :soil-to-fertilizer (sequence (constant ,:soil-to-fertilizer) "soil-to-fertilizer")
     :fertilizer-to-water (sequence (constant ,:fertilizer-to-water) "fertilizer-to-water")
     :water-to-light (sequence (constant ,:water-to-light) "water-to-light")
@@ -66,8 +60,11 @@
                      [:seeds & seeds] (put almanac :seeds seeds)
                      [:title title] (put almanac :current-map title)
                      [:map destination source nb] 
-                     (let [to-insert (zipcoll (range source (+ source nb))
-                                              (range destination (+ destination nb)))
+                     (let [to-insert
+                           #(zipcoll (range source (+ source nb))
+                           #                   (range destination (+ destination nb)))
+                           (zipcoll (seq [i :in (range nb)] (+ source i))
+                                    (seq [i :in (range nb)] (+ destination i)))
                            existing (get almanac current-map)]
                        (if existing
                          (merge-into existing to-insert)
@@ -91,8 +88,8 @@
           seed MAPPINGS))
 
 (let [almanac (->>
-                   (string/split "\n" SAMPLE)
-                   #(string/split "\n" (slurp "src/day5.txt"))
+                   #(string/split "\n" SAMPLE)
+                   (string/split "\n" (slurp "src/day5.txt"))
                    ->almanac)]
   (->> (get almanac :seeds)
        (map (partial seed->location almanac))
