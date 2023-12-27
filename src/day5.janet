@@ -60,15 +60,11 @@
                      [:seeds & seeds] (put almanac :seeds seeds)
                      [:title title] (put almanac :current-map title)
                      [:map destination source nb] 
-                     (let [to-insert
-                           #(zipcoll (range source (+ source nb))
-                           #                   (range destination (+ destination nb)))
-                           (zipcoll (seq [i :in (range nb)] (+ source i))
-                                    (seq [i :in (range nb)] (+ destination i)))
+                     (let [to-insert [destination source nb]
                            existing (get almanac current-map)]
                        (if existing
-                         (merge-into existing to-insert)
-                         (put almanac current-map to-insert)))))
+                         (array/push existing to-insert)
+                         (put almanac current-map @[to-insert])))))
                  almanac)
                @{:current-map :seeds})))
 
@@ -83,10 +79,20 @@
 (defn seed->location 
   [almanac seed]
   (reduce (fn [index mapping]
-            (let [mappings (get almanac mapping)]
-              (get mappings index index)))
+            (let [mappings (get almanac mapping)
+                  [result _] (reduce (fn [[so-far found?] [destination source nb]]
+                                       (if (not found?)
+                                         (if (and (<= source so-far) (< so-far (+ nb source)))
+                                           (let [steps (- so-far source)
+                                                 next-index (+ destination steps)]
+                                             [next-index true])
+                                           [so-far false])
+                                         [so-far true]))
+                                     [index false] mappings)]
+              result))
           seed MAPPINGS))
 
+#part 1
 (let [almanac (->>
                    #(string/split "\n" SAMPLE)
                    (string/split "\n" (slurp "src/day5.txt"))
