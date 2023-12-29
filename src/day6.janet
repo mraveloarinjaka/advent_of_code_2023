@@ -31,4 +31,25 @@
   (map count-victories)
   (reduce * 1))
 
+#part 2
 
+(defn ->races-kerning
+  [input]
+  (->> input
+       (string/split "\n")
+       (map (partial string/split " "))
+       (map (partial drop 1))
+       (filter (complement empty?))
+       (map (partial filter (complement empty?)))
+       (map (partial apply string))
+       (map parse)
+       ))
+
+(->> 
+  SAMPLE
+  #(slurp "src/day6.txt")
+  ->races-kerning
+  (count-victories)
+  )
+
+#answer 39132886
