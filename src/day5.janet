@@ -1,3 +1,5 @@
+(import spork/ev-utils :as jutils)
+
 (def SAMPLE
   `
   seeds: 79 14 55 13
@@ -78,26 +80,129 @@
 
 (defn seed->location 
   [almanac seed]
-  (reduce (fn [index mapping]
-            (let [mappings (get almanac mapping)
-                  [result _] (reduce (fn [[so-far found?] [destination source nb]]
-                                       (if (not found?)
-                                         (if (and (<= source so-far) (< so-far (+ nb source)))
-                                           (let [steps (- so-far source)
-                                                 next-index (+ destination steps)]
-                                             [next-index true])
-                                           [so-far false])
-                                         [so-far true]))
-                                     [index false] mappings)]
-              result))
-          seed MAPPINGS))
+  (let [location (reduce
+                   (fn [index mapping]
+                     (let [mappings (get almanac mapping)
+                           [result _] (reduce (fn [[so-far found?] [destination source nb]]
+                                                (if (not found?)
+                                                  (if (and (<= source so-far) (< so-far (+ nb source)))
+                                                    (let [steps (- so-far source)
+                                                          next-index (+ destination steps)]
+                                                      [next-index true])
+                                                    [so-far false])
+                                                  [so-far true]))
+                                              [index false] mappings)]
+                       #(pp (string mapping ":" index "->" result))
+                       result))
+                   seed MAPPINGS)]
+    #(pp (string seed " -> " location))
+    location))
 
 #part 1
 (let [almanac (->>
-                   #(string/split "\n" SAMPLE)
-                   (string/split "\n" (slurp "src/day5.txt"))
-                   ->almanac)]
+                #(string/split "\n" SAMPLE)
+                (string/split "\n" (slurp "src/day5.txt"))
+                ->almanac)]
   (->> (get almanac :seeds)
-       (map (partial seed->location almanac))
-       (apply min)))
+       #(map (partial seed->location almanac))
+       #(apply min)
+       ))
+
+#part 2
+(def none @[])
+
+(defn intersection-and-relative-complements
+  "Find the intersection between segments [x y] and [a b] and list the segments in [x y] not in [a b]"
+  [[x y] [a b]]
+  (let [result (cond 
+                 (or (< b x) (< y a)) [none [[x y]]]
+                 (and (< x a) (< b y)) [[a b] [[x (- a 1)] [(+ b 1) y]]]
+                 (and (<= a x) (<= x b)) [[x (min y b)] (if (< b y) [[(+ b 1) y]] [])]
+                 (and (<= a y) (<= y b)) [[(max x a) y] (if (< x a) [[x (- a 1)]] [])]
+                 )]
+    #(pp (string/format "%m ^ %m -> %m" [x y] [a b] result))
+    result))
+
+#(loop [x :in (range 1 11)
+#       y :in (range 1 11)
+#       :when (< x y)]
+#  (intersection-and-outers [x y] [3 7]))
+
+(defn ->range [a n] [a (+ a (- n 1))])
+
+(defn find-destination-range
+  [[x y] [destination source steps]]
+  (let [source-range (->range source steps) 
+        [xiyi relative-complements] (intersection-and-relative-complements [x y] source-range)]
+    (if (= xiyi none)
+      [none relative-complements]
+      (let [[xi yi] xiyi
+            dx (- xi source)
+            dy (- yi source)]
+        [[(+ destination dx) (+ destination dy)] relative-complements]))))
+
+(defn find-destination-ranges
+  [mappings [x y]]
+  (let [mappings-sorted-by-source (sort-by (fn [[_ s _]] s) mappings)
+        {:destination-ranges destination-ranges :unmapped-ranges unmapped-ranges}
+        (reduce (fn [res mapping]
+                  (let 
+                    [{:destination-ranges destinations-so-far :unmapped-ranges unmappeds-so-far} res
+                     new-unmappeds @[]]
+                    (loop [unmapped :in unmappeds-so-far]
+                      (let [[new-intersection new-unmappeds-so-far] (find-destination-range unmapped mapping)]
+                        (when (not= new-intersection none) (array/push destinations-so-far new-intersection))
+                        (put res :unmapped-ranges new-unmappeds-so-far))))
+                  res)
+                @{:destination-ranges @[] :unmapped-ranges @[[x y]]}
+                mappings)]
+    (array/concat destination-ranges unmapped-ranges)))
+
+(defn find-all-destination-ranges
+  [mappings sources]
+  (mapcat (partial find-destination-ranges mappings) sources))
+
+#water-to-light map:
+#88 18 7
+#18 25 70
+
+#(let [almanac (->> 
+#                (string/split "\n" SAMPLE)
+#                ->almanac)
+#      sample-sources [[18 20] [50 60]] 
+#      sample-segment (get-in almanac [:water-to-light 0])
+#      sample-mappings (get almanac :water-to-light)]
+#  (find-all-destination-ranges sample-mappings sample-sources))
+
+(defn seeds->seed-ranges
+  [seeds]
+  (->> seeds
+       (partition 2)
+       (map (fn [[a n]] (->range a n)))))
+
+(let [almanac (->> 
+                #(string/split "\n" SAMPLE)
+                (string/split "\n" (slurp "src/day5.txt"))
+                ->almanac)
+      _ (update almanac :seeds seeds->seed-ranges)
+      seeds (get almanac :seeds)
+      all-destinations (reduce (fn [sources mappings-index]
+                                 (let [destinations (find-all-destination-ranges (get almanac mappings-index) sources)]
+                                   #(pp (string/format "%m - %m  -> %m" mappings-index sources destinations))
+                                   destinations))
+                               seeds MAPPINGS)]
+  (->> all-destinations
+       (sort-by first)
+       first
+       first))
+
+#light-to-temperature map:
+#45 77 23
+#81 45 19
+#68 64 13
+
+#":light-to-temperature - @[(74 87) (46 50) (55 62)]  -> @[(78 81) (46 55) (82 86) (91 98)]"
+#(find-destination-ranges
+#  @[[45 77 23] [81 45 19] [68 64 13]] [74 87]) 
+
 
